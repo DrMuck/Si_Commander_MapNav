@@ -1,11 +1,14 @@
-# Si_Commander_MapNav 0.1.3: in-game test checklist
+# Si_Commander_MapNav 0.1.4: in-game test checklist
 
 **Setup:** the client is on the Steam test branch. `Mods\Si_Commander_MapNav.dll` is the test build. Any server works.
 
 **Logs:** MelonLoader console / `MelonLoader\Latest.log`, and `UserData\Si_Commander_MapNav\session-*.log`. Set `Debug = true` in `UserData\MelonPreferences.cfg` `[Si_Commander_MapNav]` for override, click and push detail.
 
-## 0. 0.1.1 first: the diagnostic run (do this before anything else)
-- Install: with the game **closed**, copy `Mods\~pending\Si_Commander_MapNav.dll` over `Mods\Si_Commander_MapNav.dll`, then delete the `~pending` folder. The log must say `READY 0.1.3 ... DriveMode=direct`.
+> **Since 0.1.4, the `DIAG ...` and `Click press ...` lines appear only with `Debug = true`.** Set Debug first for the diagnostic runs in sections 0 and 0b.
+> 0.1.3 passed steps 2-5 in game on 2026-10-26: WASD/QE, Shift boost and click-to-jump.
+
+## 0. The diagnostic run (0.1.1 – 0.1.3, done)
+- Install: with the game **closed**, copy `Mods\~pending\Si_Commander_MapNav.dll` over `Mods\Si_Commander_MapNav.dll`, then delete the `~pending` folder. The log must say `READY 0.1.4 ... DriveMode=direct`.
 1. Join as commander and open the map (M). The log shows `NAV ON` and two `DIAG nav-on` lines.
 2. **Hold W for 2 s with the map open**, then release.
 3. Left-click once on an empty map spot (do not drag). The log shows `Click press at ...` and either `Jump: ...` or the reason.
@@ -23,7 +26,7 @@
 9. Set `DriveMode = "direct"` again afterwards.
 
 ## A. Load
-1. Start the game. The log shows `READY 0.1.3 - Commander MapNav. Enabled=True KeyboardNav=True DriveMode=direct CameraZoomWhileMapOpen=False ClickToJump=True CloseMapOnClick=False MapFollowsCamera=True ...`.
+1. Start the game. The log shows `READY 0.1.4 - Commander MapNav. Enabled=True KeyboardNav=True DriveMode=direct CameraZoomWhileMapOpen=False ClickToJump=True CloseMapOnClick=False MapFollowsCamera=True ...`.
    - The prefs category `[Si_Commander_MapNav]` appears in MelonPreferences.cfg after the first quit.
 2. There are no `ERROR` lines in the session log during load and while joining a server.
 

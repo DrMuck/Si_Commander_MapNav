@@ -55,18 +55,18 @@ public sealed partial class ClientMod
             pressPos = mouse.position.ReadValue();
             pressAt = Now;
             pressValid = IsMapPoint(lm, pressPos, out string why);
-            DiagPress(lm, pressPos, pressValid, why);
+            if (prefDebug.Value) DiagPress(lm, pressPos, pressValid, why);
         }
         if (!mouse.leftButton.wasReleasedThisFrame || !pressValid) return;
         pressValid = false;
         Vector2 release = mouse.position.ReadValue();
         float moved = Vector2.Distance(release, pressPos);
-        if (moved > DragThreshold) { Write("Click release: drag (" + moved.ToString("0") + " px), not a click."); return; }
-        if (Now - pressAt > MaxClickSeconds) { Write("Click release: held " + (Now - pressAt).ToString("0.0") + " s, not a click."); return; }
+        if (moved > DragThreshold) { Dbg("Click release: drag (" + moved.ToString("0") + " px), not a click."); return; }
+        if (Now - pressAt > MaxClickSeconds) { Dbg("Click release: held " + (Now - pressAt).ToString("0.0") + " s, not a click."); return; }
         Jump(lm, pressPos);
     }
 
-    // 0.1.1 diagnostics: one line per left press while NAV is on (pointer, viewport, verdict, world point).
+    // Diagnostics (0.1.1; behind the Debug pref since 0.1.4): one line per left press while NAV is on (pointer, viewport, verdict, world point).
     private void DiagPress(LargeMap lm, Vector2 p, bool valid, string why)
     {
         var map = MapOf(lm);

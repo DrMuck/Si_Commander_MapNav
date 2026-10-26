@@ -8,7 +8,8 @@ using InputMap = Il2CppSilica.GameInput.InputMap;
 
 namespace SiCommanderMapNav;
 
-// Always-on diagnostics while NAV is on (no Debug pref needed), added in 0.1.1 because 0.1.0 opened the gate in game but
+// Diagnostics while NAV is on, added in 0.1.1 (always on), behind the Debug pref since 0.1.4 (the cause was found:
+// DriveMode=direct works). Originally added because 0.1.0 opened the gate in game but
 // the camera did not move. One of these must be false, and the lines below show which:
 //   (a) the Commander InputActions read non-zero after the override   -> per action: enabled, map enabled, value, controls
 //   (b) StrategyMode.Update runs and writes the rig                     -> rig position moves while keys are held
@@ -24,6 +25,7 @@ public sealed partial class ClientMod
     private void DiagOnNavOn()
     {
         diagHave = false; diagNextAt = 0;
+        if (!prefDebug.Value) return;
         var sb = new StringBuilder("DIAG nav-on: DriveMode=" + (IsDirectMode ? "direct" : "override") + ";");
         // A wrong action name would only produce a DebugConsole warning in Documents\Silica\Game.log (GameInput.cs:642-645).
         foreach (var name in NavActions)
@@ -38,7 +40,7 @@ public sealed partial class ClientMod
 
     private void DiagUpdate(bool held)
     {
-        if (!held) { diagHave = false; return; }
+        if (!held || !prefDebug.Value) { diagHave = false; return; }
         if (Now < diagNextAt) return;
         diagNextAt = Now + 0.5;
         DiagLine("held", true);

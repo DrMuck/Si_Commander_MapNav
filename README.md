@@ -10,13 +10,13 @@ A client-only MelonLoader mod for Silica (Il2Cpp game client). While you are com
   - the map can close after a click (off by default).
 - When the map is zoomed in, it scrolls along while the camera moves with the keyboard.
 
-Nothing is sent to the server, so the mod works on vanilla and modded servers alike. Version 0.1.3, author DrMuck.
+Nothing is sent to the server, so the mod works on vanilla and modded servers alike. Version 0.1.4, author DrMuck.
 
 **Status:**
-- Keyboard navigation in `DriveMode=direct` (the default since 0.1.1) is confirmed working in game on Release 1.0.10.
-- The `override` drive mode (0.1.0) does not move the camera; the cause is not known yet.
-- 0.1.2 and 0.1.3 rewrote the click-to-jump guard, because 0.1.1 and 0.1.2 rejected every click on the bare map. The 0.1.3 guard is not tested yet.
-- See `docs/DESIGN.md` §10-12.
+- 0.1.3 is confirmed working in game on the Release 1.0.10 client: WASD/QE, the Shift boost and click-to-jump.
+- 0.1.4 only moves the diagnostic lines behind the `Debug` pref.
+- The `override` drive mode (0.1.0) still does not move the camera; use `direct`, the default.
+- `docs/DEV_NOTE.md` is a proposal to the developers to add this to vanilla.
 
 ## Install
 Copy the DLL that matches the client's Steam branch into `<Silica>\Mods\`:
@@ -39,7 +39,7 @@ Packaged copies are in `Projects\_dist\Si_Commander_MapNav_<version>_<date>\`. C
 | CloseMapOnClick | false | Close the map after a jump |
 | MapFollowsCamera | true | Scroll the map along while the keyboard moves the camera |
 | PreferredInputFallback | false | Fallback: keep the whole Commander input map live behind the map. Use only if keyboard nav fails. Read at game start, so restart after changing it. |
-| Debug | false | Verbose log |
+| Debug | false | Verbose log: DIAG lines while the map is open and a camera key is held, one line per click on the map, overrides, map pushes |
 
 Logs go to the MelonLoader log and `UserData\Si_Commander_MapNav\session-*.log`.
 

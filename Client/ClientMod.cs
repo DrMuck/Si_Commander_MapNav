@@ -21,7 +21,7 @@ namespace SiCommanderMapNav;
 // session and restores vanilla input (ClearOverrides).
 public sealed partial class ClientMod : MelonMod
 {
-    public const string Version = "0.1.3";
+    public const string Version = "0.1.4";
 
     private static ClientMod instance;
     private readonly Stopwatch clock = Stopwatch.StartNew();
@@ -50,7 +50,7 @@ public sealed partial class ClientMod : MelonMod
         prefCloseOnClick = c.CreateEntry("CloseMapOnClick", false, description: "Close the large map after a click-to-jump.");
         prefFollow = c.CreateEntry("MapFollowsCamera", true, description: "While you move the camera with the keyboard, the map scrolls along when the camera icon would leave the visible map area (only matters when the map is zoomed in).");
         prefFallback = c.CreateEntry("PreferredInputFallback", false, description: "Fallback only if keyboard nav does not work: keep the WHOLE Commander input map enabled while the map is open (all commander hotkeys and world clicks live behind the map). Read at game start (restart after changing). Leave off.");
-        prefDebug = c.CreateEntry("Debug", false, description: "Verbose log lines (overrides, clicks, map pushes).");
+        prefDebug = c.CreateEntry("Debug", false, description: "Verbose log lines: DIAG lines while the map is open (every 0.5 s while a camera key is held), one line per click on the map, overrides, map pushes.");
         Write("READY " + Version + " - Commander MapNav. " + PrefSummary());
         InstallFallbackPatch();
     }
