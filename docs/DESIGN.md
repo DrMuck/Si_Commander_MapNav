@@ -260,3 +260,28 @@ If direct mode also shows no movement, the diagnostics show whether the rig move
 **Logging:** every press logs the top hit with its parent chain (`object < parent < ...`, up to 7 levels) and the hit count.
 
 **Unchanged:** drag vs click (6 px / 1 s), left button only, middle mouse (ping) untouched.
+
+## 12. 0.1.3: in-game result of 0.1.2, map surface in the click walk
+
+**In-game result of 0.1.2.** Every click was still blocked, every time with `BLOCKED - Button 'Map' on the map`:
+- on terrain: top hit `Tiling2 < Map < Map Mask < Map Window < Panel < Wrapper < Centauri_ScoreBoard` (4 hits);
+- on an icon: `Graphic < LargeMapIcon(Clone) < Icons < Map < Map Mask < Map Window < Panel` (5 hits).
+
+The MapLayer object "Map" itself carries a Unity `Button`.
+
+**What that Button is.** It is `RespawnMenu.MapButton`:
+- In the old export, `Centauri_RespawnMenu.MapButton` points to the Button on `.../Map Window/Map Mask/Map`, and so does the Sol counterpart.
+- Its persistent `m_OnClick` is empty in both prefabs.
+- `RespawnMenu.Awake` adds the only listener, `OnMapClick` → `SelectSpawnPointGroup(null)` (RespawnMenu.cs:143-148, 540-543; the same in 0947). That clears the respawn panel's selected spawn-point group, a purely local UI state change.
+- The commander gate excludes `GetPickSpawn()`, and `LargeMap.Open` activates the RespawnMenu only in pick-spawn (LargeMap.cs:80-89). Even if the listener fires on our click, it only clears an already empty selection in an inactive panel.
+- **No conflict, not suppressed.** The `LargeMapIcon` / `MapIcon` prefabs have no Button.
+
+**Walk (0.1.3).**
+1. A top hit outside `map.transform` is blocked, as before.
+2. Otherwise, walk from the top hit upward. For each object `t`:
+   1. If `t` is the MapLayer, or an ancestor of the MapLayer (`layer.IsChildOf(t)`: the Viewport "Map Mask" and the Map root "Map Window"), or the IconParent: **ALLOW**. This is the map surface; controls on these objects are ignored.
+   2. If `t` has a `MapIcon` component: **ALLOW**. The click jumps to that spot.
+   3. If `t` carries Button, Toggle, Scrollbar, Slider, Dropdown, InputField, TMP_InputField or TMP_Dropdown: **BLOCK**.
+   4. Otherwise go on to the parent. Reaching the Map root means ALLOW.
+
+The two logged cases now give ALLOW at `Map` and at `LargeMapIcon(Clone)` respectively.

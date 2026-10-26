@@ -9,13 +9,13 @@ A client-only MelonLoader mod for Silica (Il2Cpp game client). While you are com
   - the map can close after a click (off by default).
 - When the map is zoomed in, it scrolls along while the camera moves with the keyboard.
 
-Nothing is sent to the server, so the mod works on vanilla and modded servers alike. Version 0.1.2, author DrMuck.
+Nothing is sent to the server, so the mod works on vanilla and modded servers alike. Version 0.1.3, author DrMuck.
 
 **Status:**
 - Keyboard navigation in `DriveMode=direct` (the default since 0.1.1) is confirmed working in game on Release 1.0.10.
 - The `override` drive mode (0.1.0) does not move the camera; the cause is not known yet.
-- 0.1.2 rewrites the click-to-jump guard. 0.1.1 rejected every click on the bare map. The new guard is not tested yet.
-- See `docs/DESIGN.md` §10-11.
+- 0.1.2 and 0.1.3 rewrote the click-to-jump guard, because 0.1.1 and 0.1.2 rejected every click on the bare map. The 0.1.3 guard is not tested yet.
+- See `docs/DESIGN.md` §10-12.
 
 ## Install
 Copy the DLL that matches the client's Steam branch into `<Silica>\Mods\`:

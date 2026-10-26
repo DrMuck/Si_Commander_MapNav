@@ -1,16 +1,16 @@
-# Si_Commander_MapNav 0.1.2: in-game test checklist
+# Si_Commander_MapNav 0.1.3: in-game test checklist
 
 **Setup:** the client is on the Steam test branch. `Mods\Si_Commander_MapNav.dll` is the test build. Any server works.
 
 **Logs:** MelonLoader console / `MelonLoader\Latest.log`, and `UserData\Si_Commander_MapNav\session-*.log`. Set `Debug = true` in `UserData\MelonPreferences.cfg` `[Si_Commander_MapNav]` for override, click and push detail.
 
 ## 0. 0.1.1 first: the diagnostic run (do this before anything else)
-- Install: with the game **closed**, copy `Mods\~pending\Si_Commander_MapNav.dll` over `Mods\Si_Commander_MapNav.dll`, then delete the `~pending` folder. The log must say `READY 0.1.2 ... DriveMode=direct`.
+- Install: with the game **closed**, copy `Mods\~pending\Si_Commander_MapNav.dll` over `Mods\Si_Commander_MapNav.dll`, then delete the `~pending` folder. The log must say `READY 0.1.3 ... DriveMode=direct`.
 1. Join as commander and open the map (M). The log shows `NAV ON` and two `DIAG nav-on` lines.
 2. **Hold W for 2 s with the map open**, then release.
 3. Left-click once on an empty map spot (do not drag). The log shows `Click press at ...` and either `Jump: ...` or the reason.
 4. Close the map, quit the game, and **send the session log** (`UserData\Si_Commander_MapNav\session-*.log`, the newest one).
-5. 0.1.2: click on 3 empty map spots. Each press logs `Click press at ...: map point ... top UI hit '<object> < <parents> ...'`, followed by `Jump: camera to ...`. If one is still BLOCKED, send the log: the top-hit chain shows which UI element swallowed it.
+5. 0.1.3: click on 3 empty map spots and on 1 unit icon. Each press logs `Click press at ...: map point ... top UI hit '<object> < <parents> ...'`, followed by `Jump: camera to ...`. If one is still BLOCKED, send the log: the top-hit chain shows which UI element swallowed it.
 
 ## 0b. Override diagnostics run (answers why 0.1.0 read nothing; for a note to the developer)
 6. With the game **closed**, set `DriveMode = "override"` under `[Si_Commander_MapNav]` in `UserData\MelonPreferences.cfg`.
@@ -22,7 +22,7 @@
 9. Set `DriveMode = "direct"` again afterwards.
 
 ## A. Load
-1. Start the game. The log shows `READY 0.1.2 - Commander MapNav. Enabled=True KeyboardNav=True DriveMode=direct CameraZoomWhileMapOpen=False ClickToJump=True CloseMapOnClick=False MapFollowsCamera=True ...`.
+1. Start the game. The log shows `READY 0.1.3 - Commander MapNav. Enabled=True KeyboardNav=True DriveMode=direct CameraZoomWhileMapOpen=False ClickToJump=True CloseMapOnClick=False MapFollowsCamera=True ...`.
    - The prefs category `[Si_Commander_MapNav]` appears in MelonPreferences.cfg after the first quit.
 2. There are no `ERROR` lines in the session log during load and while joining a server.
 

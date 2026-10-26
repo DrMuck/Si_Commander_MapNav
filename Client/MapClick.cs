@@ -96,18 +96,21 @@ public sealed partial class ClientMod
 
     // True when a press at `p` (pixels, origin bottom-left) is a click on the bare map.
     //
-    // 0.1.2: decided ONLY by what the click would hit in the UI, relative to the Map ("Map Window") subtree.
+    // Since 0.1.2: decided ONLY by what the click would hit in the UI, relative to the Map ("Map Window") subtree.
     // 0.1.1 also refused UIManager.Instance.MouseOverButton, which is true over the bare map image in game (all three
     // clicks on empty terrain were "BLOCKED - over a button"): UIManager sets it when any raycast hit has a Button
     // component (UIManager.cs:475-482), and the map layer itself evidently counts. That check is gone.
     //   1. pointer inside the Viewport ("Map Mask") screen rect, canvas is screen-space overlay;
     //   2. EventSystem.RaycastAll, top (first) result:
-    //        ALLOW  top hit is inside the Map subtree (MapLayer, FogLayer, Viewport, IconParent, MapIcons, anything under
-    //               map.transform) and neither it nor a parent up to the Map root carries an interactive control
-    //               (Button, Toggle, Scrollbar, Slider, Dropdown, InputField, TMP_InputField, TMP_Dropdown - matched by
-    //               Il2Cpp type name, so no TextMeshPro reference is needed);
-    //        BLOCK  top hit outside the Map subtree (scoreboard, legend, toolbar, respawn menu, chat, ...) or an
-    //               interactive control inside it;
+    //        BLOCK  top hit outside the Map subtree (map.transform = "Map Window"): scoreboard, legend, toolbar, respawn
+    //               menu, chat, ...
+    //        walk from the top hit upward (0.1.3):
+    //          object is the MapLayer, an ancestor of it (Viewport "Map Mask", Map root), the IconParent or carries a
+    //          MapIcon -> ALLOW (map surface; controls on these objects do not count: the MapLayer "Map" carries a Button,
+    //          RespawnMenu.MapButton, which made 0.1.2 block every click);
+    //          object carries an interactive control (Button, Toggle, Scrollbar, Slider, Dropdown, InputField,
+    //          TMP_InputField, TMP_Dropdown - matched by Il2Cpp type name) -> BLOCK;
+    //          otherwise continue with the parent;
     //        no hit at all -> ALLOW (the geometry check already passed).
     //   3. If the raycast is unavailable or throws: ALLOW unless the pointer is inside the screen rect of an active
     //      Selectable of the LargeMap that is NOT under the Map transform.
@@ -145,11 +148,18 @@ public sealed partial class ClientMod
         var root = map.transform;
         lastTopHit = Chain(top.transform) + " (" + hits.Count + " hits)";
         if (!top.transform.IsChildOf(root)) { why = "UI outside the map ('" + top.name + "')"; return false; }
+        var layer = map.MapLayer.transform;
+        var icons = map.IconParent;
         for (var t = top.transform; t != null; t = t.parent)
         {
+            // Map surface reached before any control on another object: allow. The surface is the MapLayer ("Map", which
+            // carries RespawnMenu.MapButton - a Button whose only listener clears the respawn spawn-point selection), every
+            // ancestor of it (Viewport "Map Mask", the Map root "Map Window"), the IconParent and any MapIcon object.
+            if (t.Pointer == layer.Pointer || layer.IsChildOf(t) || (icons != null && t.Pointer == icons.Pointer)) return true;
+            if (t.GetComponent<MapIcon>() != null) return true;
             string control = InteractiveOn(t);
             if (control != null) { why = control + " '" + t.gameObject.name + "' on the map"; return false; }
-            if (t.Pointer == root.Pointer) break;
+            if (t.Pointer == root.Pointer) return true;
         }
         return true;
     }
