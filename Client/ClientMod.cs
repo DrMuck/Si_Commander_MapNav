@@ -21,7 +21,7 @@ namespace SiCommanderMapNav;
 // session and restores vanilla input (ClearOverrides).
 public sealed partial class ClientMod : MelonMod
 {
-    public const string Version = "0.1.1";
+    public const string Version = "0.1.2";
 
     private static ClientMod instance;
     private readonly Stopwatch clock = Stopwatch.StartNew();

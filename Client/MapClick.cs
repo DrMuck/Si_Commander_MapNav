@@ -26,7 +26,7 @@ namespace SiCommanderMapNav;
 //     right click untouched. UIMovePanel is the GAMEPAD left-stick pan (UI/Move), not a mouse drag.
 // So a short left click on the map has no vanilla meaning; we give it one. Clicks on anything selectable (buttons,
 // toggles, the scoreboard, the respawn menu, legend) or on any UI drawn above the map are left alone: the top-most UI
-// raycast hit must lie inside Map.Viewport ("Map Mask") and have no Selectable between it and the viewport.
+// raycast hit must lie inside the Map subtree and carry no interactive control up to the Map root (IsMapPoint, 0.1.2).
 //
 // Screen -> world is the exact inverse of the PlayerIcon placement (Map.cs:358-362):
 //   icon: local = (rect.width * (w.x - off.x) / bounds.x, rect.height * (w.z - off.z) / bounds.z); screen = MapLayer.TransformPoint(local)
@@ -95,6 +95,22 @@ public sealed partial class ClientMod
     }
 
     // True when a press at `p` (pixels, origin bottom-left) is a click on the bare map.
+    //
+    // 0.1.2: decided ONLY by what the click would hit in the UI, relative to the Map ("Map Window") subtree.
+    // 0.1.1 also refused UIManager.Instance.MouseOverButton, which is true over the bare map image in game (all three
+    // clicks on empty terrain were "BLOCKED - over a button"): UIManager sets it when any raycast hit has a Button
+    // component (UIManager.cs:475-482), and the map layer itself evidently counts. That check is gone.
+    //   1. pointer inside the Viewport ("Map Mask") screen rect, canvas is screen-space overlay;
+    //   2. EventSystem.RaycastAll, top (first) result:
+    //        ALLOW  top hit is inside the Map subtree (MapLayer, FogLayer, Viewport, IconParent, MapIcons, anything under
+    //               map.transform) and neither it nor a parent up to the Map root carries an interactive control
+    //               (Button, Toggle, Scrollbar, Slider, Dropdown, InputField, TMP_InputField, TMP_Dropdown - matched by
+    //               Il2Cpp type name, so no TextMeshPro reference is needed);
+    //        BLOCK  top hit outside the Map subtree (scoreboard, legend, toolbar, respawn menu, chat, ...) or an
+    //               interactive control inside it;
+    //        no hit at all -> ALLOW (the geometry check already passed).
+    //   3. If the raycast is unavailable or throws: ALLOW unless the pointer is inside the screen rect of an active
+    //      Selectable of the LargeMap that is NOT under the Map transform.
     private bool IsMapPoint(LargeMap lm, Vector2 p, out string why)
     {
         why = null;
@@ -105,30 +121,73 @@ public sealed partial class ClientMod
         if (viewport == null || !ScreenRect(viewport, out var vp)) { why = "no viewport"; return false; }
         if (!spaceFlat) { why = "map canvas is not screen-space overlay (unsupported)"; return false; }
         if (!vp.Contains(p)) { why = "outside the map viewport"; return false; }
-        var ui = UIManager.Instance;
-        if (ui != null && ui.MouseOverButton) { why = "over a button"; return false; }
-        return TopHitIsMap(viewport, p, ref why);
+        try { return TopHitAllows(map, p, ref why); }
+        catch (Exception error)
+        {
+            lastTopHit = "raycast failed (" + error.GetType().Name + "), geometric fallback";
+            return FallbackAllows(lm, map, p, ref why);
+        }
     }
 
-    // The top-most UI raycast hit must be inside the viewport and not part of a Selectable. If the EventSystem is missing
-    // or returns nothing (no raycast target under the pointer), the geometry checks above decide.
-    private bool TopHitIsMap(RectTransform viewport, Vector2 p, ref string why)
+    private static readonly HashSet<string> InteractiveTypes = new()
+    { "Button", "Toggle", "Scrollbar", "Slider", "Dropdown", "InputField", "TMP_InputField", "TMP_Dropdown" };
+
+    private bool TopHitAllows(Map map, Vector2 p, ref string why)
     {
-        lastTopHit = "-";
         var es = EventSystem.current;
-        if (es == null) { lastTopHit = "no EventSystem"; return true; }
+        if (es == null) throw new InvalidOperationException("no EventSystem");
         var data = new PointerEventData(es) { position = p };
         var hits = new Il2CppSystem.Collections.Generic.List<RaycastResult>();
         es.RaycastAll(data, hits);
         if (hits.Count == 0) { lastTopHit = "no hit"; return true; }
         var top = hits[0].gameObject;
-        if (top == null) { lastTopHit = "null"; return true; }
-        lastTopHit = top.name + " (" + hits.Count + " hits)";
-        var vt = viewport.transform;
-        if (!top.transform.IsChildOf(vt)) { why = "UI above the map ('" + top.name + "')"; return false; }
-        for (var t = top.transform; t != null && t.Pointer != vt.Pointer; t = t.parent)
-            if (t.GetComponent<Selectable>() != null) { why = "selectable '" + t.gameObject.name + "'"; return false; }
+        if (top == null) { lastTopHit = "null object"; return true; }
+        var root = map.transform;
+        lastTopHit = Chain(top.transform) + " (" + hits.Count + " hits)";
+        if (!top.transform.IsChildOf(root)) { why = "UI outside the map ('" + top.name + "')"; return false; }
+        for (var t = top.transform; t != null; t = t.parent)
+        {
+            string control = InteractiveOn(t);
+            if (control != null) { why = control + " '" + t.gameObject.name + "' on the map"; return false; }
+            if (t.Pointer == root.Pointer) break;
+        }
         return true;
+    }
+
+    // Raycast unavailable: inside the viewport (checked by the caller) and not over a LargeMap control outside the Map.
+    private bool FallbackAllows(LargeMap lm, Map map, Vector2 p, ref string why)
+    {
+        var selectables = lm.GetComponentsInChildren<Selectable>(false);
+        var root = map.transform;
+        for (int i = 0; selectables != null && i < selectables.Length; i++)
+        {
+            var sel = selectables[i];
+            if (sel == null || sel.transform.IsChildOf(root)) continue;
+            if (ScreenRect(sel.transform.TryCast<RectTransform>(), out var r) && r.Contains(p)) { why = "over control '" + sel.gameObject.name + "' (fallback)"; return false; }
+        }
+        return true;
+    }
+
+    // Name of the first interactive UI control on this object, or null.
+    private static string InteractiveOn(Transform t)
+    {
+        var components = t.GetComponents<Component>();
+        for (int i = 0; components != null && i < components.Length; i++)
+        {
+            var c = components[i];
+            if (c == null) continue;
+            string name = c.GetIl2CppType().Name;
+            if (InteractiveTypes.Contains(name)) return name;
+        }
+        return null;
+    }
+
+    // "Map < Map Mask < Map Window < ..." (object first, then up to 6 parents)
+    private static string Chain(Transform t)
+    {
+        var parts = new List<string>();
+        for (int i = 0; t != null && i < 7; i++, t = t.parent) parts.Add(t.gameObject.name);
+        return string.Join(" < ", parts);
     }
 
     private bool ScreenToWorld(Map map, Vector2 screen, out Vector3 world)

@@ -231,3 +231,32 @@ Interop public surface, 1.0.7 (`_silica_refs\client_test`) vs the installed 1.0.
 | Keys | Hardcoded vanilla defaults: W/A/S/D + arrows, Q/E + comma/period. **Rebinding is not honoured.** |
 
 If direct mode also shows no movement, the diagnostics show whether the rig moved and the camera did not (b/c), or whether the rig never moved.
+
+## 11. 0.1.2: in-game result of 0.1.1, click guard rewrite
+
+**In-game result of 0.1.1** (Release 1.0.10 client, `session-20261026T162137877Z.log`):
+- **Direct drive works.** The user confirmed it. With W/D held, the rig went from (-2085.9,548.2,-2482.6) to (-1613.4,548.2,-1730.8) and the camera followed.
+- So hypotheses (b) and (c) from §10 are false: vanilla `StrategyMode.Update` runs, clamps and smooth-damps the camera while the map is open. The 0.1.0 failure lies in the override input path (a).
+  - The cause is still unknown. The 0.1.1 diagnostics only ran in direct mode, where no override is set.
+  - A run with `DriveMode=override` is pending (TEST_CHECKLIST step 6), for a note to the game developer.
+- **Click-to-jump was rejected every time.** All three clicks on bare terrain logged `BLOCKED - over a button`.
+  - The world points were plausible: sceneBounds (6000, 125, 6000), sceneOffset (0, 186, 0).
+  - The cause was `UIManager.Instance.MouseOverButton`. UIManager sets it when any GraphicRaycaster hit under the pointer has a `Button` component (UIManager.cs:475-482), and it is true over the map image.
+
+**New guard (`MapClick.cs` `IsMapPoint`, 0.1.2).** `MouseOverButton` is no longer used.
+1. The pointer must be inside the `Map.Viewport` screen rect (overlay canvas). Otherwise: BLOCK "outside the map viewport".
+2. `EventSystem.current.RaycastAll(PointerEventData{position}, Il2CppSystem List<RaycastResult>)` gives the top (first) result:
+
+| Top hit | Result |
+|---|---|
+| No hit | ALLOW (the geometry check already passed) |
+| Not a descendant of `map.transform` ("Map Window"): scoreboard, legend, toolbar, respawn menu, chat | BLOCK "UI outside the map" |
+| Inside the Map subtree, and the object or a parent up to and including the Map root has an interactive control | BLOCK |
+| Inside the Map subtree (MapLayer, FogLayer, Viewport, IconParent, MapIcons, ...) with no such control | ALLOW |
+
+   - The interactive controls are `Button`, `Toggle`, `Scrollbar`, `Slider`, `Dropdown`, `InputField`, `TMP_InputField` and `TMP_Dropdown`. They are matched by Il2Cpp type name, so no TextMeshPro reference is needed.
+3. **If the raycast throws or there is no EventSystem (geometric fallback):** ALLOW unless the pointer lies inside the screen rect of an active `Selectable` under the LargeMap that is not under `map.transform`.
+
+**Logging:** every press logs the top hit with its parent chain (`object < parent < ...`, up to 7 levels) and the hit count.
+
+**Unchanged:** drag vs click (6 px / 1 s), left button only, middle mouse (ping) untouched.
