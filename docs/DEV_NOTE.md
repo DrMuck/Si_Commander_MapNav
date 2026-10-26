@@ -3,7 +3,7 @@
 ## Request
 - **What:** while the commander has the large map (M) open, let the RTS camera keep moving: WASD/arrows to move, Q/E to rotate, Shift to boost, and a left click on the map to move the camera there.
 - **History:** this worked in an older Silica build. Today the camera freezes as soon as the map opens.
-- **Proof it works:** a client mod (Si_Commander_MapNav, by DrMuck) reproduces it on Release 1.0.10. Commanders who tested it confirm it works well.
+- **Proof it works:** a client mod (Si_Commander_MapNav, by DrMuck) reproduces it on Release 1.0.10 and has been tested in play.
 
 Line numbers below come from an ILSpy decompile of `SilicaCore.dll`, Release 1.0.9 dedicated server (the same update as client 1.0.10), one file per type. Treat the method names as authoritative.
 
@@ -85,7 +85,7 @@ public class MapClickMoveCamera : MonoBehaviour, IPointerClickHandler
 }
 ```
 
-Clicks on map icons bubble up to the MapLayer, so clicking a unit icon also moves the camera there. The mod does the same, and testers liked it. `MoveCameraToPosition` sets the pivot so the camera looks at the point, and it recomputes the height itself.
+Clicks on map icons bubble up to the MapLayer, so clicking a unit icon also moves the camera there. The mod does the same. `MoveCameraToPosition` sets the pivot so the camera looks at the point, and it recomputes the height itself.
 
 ## Nice to have
 When the map is zoomed in, scroll the map along with the camera icon: if the icon leaves an inner margin of `Viewport`, shift the MapLayer position by the overshoot.
