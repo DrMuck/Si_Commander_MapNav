@@ -10,6 +10,7 @@
 2. **Hold W for 2 s with the map open**, then release.
 3. Left-click once on an empty map spot (do not drag). The log shows `Click press at ...` and either `Jump: ...` or the reason.
 4. Close the map, quit the game, and **send the session log** (`UserData\Si_Commander_MapNav\session-*.log`, the newest one).
+4b. 0.1.3: with the map open, hold **Shift + W**. The camera moves about 5x faster; the DIAG line shows `Shift1 boost x5`.
 5. 0.1.3: click on 3 empty map spots and on 1 unit icon. Each press logs `Click press at ...: map point ... top UI hit '<object> < <parents> ...'`, followed by `Jump: camera to ...`. If one is still BLOCKED, send the log: the top-hit chain shows which UI element swallowed it.
 
 ## 0b. Override diagnostics run (answers why 0.1.0 read nothing; for a note to the developer)

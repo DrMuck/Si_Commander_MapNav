@@ -27,7 +27,19 @@ namespace SiCommanderMapNav;
 // the 0.9.47 interop has neither SetYawAroundPivot nor SnapYaw (0.9.47 inlines the same math, 0947:1601-1630).
 //
 // Keys are HARDCODED to the vanilla default bindings (SilicaInput.asset): Camera Movement = W/A/S/D + arrows,
-// Rotate Camera = Q/E + comma/period. Player rebinding of those actions is NOT honoured in direct mode.
+// Rotate Camera = Q/E + comma/period, Camera Speed Boost = <Keyboard>/shift (either Shift; Keyboard.shiftKey).
+// Player rebinding of those actions is NOT honoured in direct mode.
+//
+// Speed boost (Shift, 0.1.3): vanilla StrategyMode.UpdateSpeedBoostHotkey (106:3442-3446, 109:3545-3549) sets
+// CameraSpeed = 5 while GetButton("Camera Speed Boost", Commander) is held, else 1, and ClampPositionToCameraBounds
+// multiplies the frame's translation by it (109:2060-2062). It runs from UpdateHotkeys at the END of StrategyMode.Update
+// (109:2507, after the clamp), and GetButton ignores EnableOverride (GameInput.cs:247-255), so behind the map CameraSpeed
+// is reset to 1 every frame.
+//   direct:   our translation goes straight into transform.position (not through vanilla's turbo), so we multiply it by
+//             SpeedBoostFactor while Shift is held. If StrategyMode.CameraSpeed is ever != 1 (vanilla saw the boost
+//             itself), that value is used INSTEAD of ours - never both.
+//   override: we write StrategyMode.CameraSpeed = SpeedBoostFactor while Shift is held. Whatever the script order, the
+//             next ClampPositionToCameraBounds uses it before UpdateHotkeys resets it to 1.
 public sealed partial class ClientMod
 {
     private bool yawStepped;
@@ -79,8 +91,7 @@ public sealed partial class ClientMod
             float speed = (sm.CameraHeightPct * 0.9f + 0.1f) * 600f * dt * (smooth ? 0.5f : 1f);
             Vector3 right = t.right;
             Vector3 forward = Vector3.Cross(right, Vector3.up).normalized;
-            float turbo = sm.CameraSpeed;
-            pos += (input.y * speed * forward + input.x * speed * right) * (turbo > 0f ? turbo : 1f);
+            pos += (input.y * speed * forward + input.x * speed * right) * DirectSpeedFactor(sm);
             Bounds b = sm.CameraBounds;
             if (b.size.x > 0f && b.size.z > 0f)
             {
@@ -89,6 +100,24 @@ public sealed partial class ClientMod
             }
         }
         t.position = pos;
+    }
+
+    private float BoostFactor => Math.Max(1f, prefBoost.Value);
+    private static bool BoostHeld() { var kb = Keyboard.current; return kb != null && kb.shiftKey.isPressed; }
+
+    // Vanilla CameraSpeed if it is not the neutral 1 (never multiply twice), else our boost while Shift is held.
+    private float DirectSpeedFactor(StrategyMode sm)
+    {
+        float vanilla = sm.CameraSpeed;
+        if (vanilla > 0f && Math.Abs(vanilla - 1f) > 0.01f) return vanilla;
+        return BoostHeld() ? BoostFactor : 1f;
+    }
+
+    // Override mode: hand the boost to vanilla's own turbo (see the class comment).
+    private void OverrideBoost()
+    {
+        var sm = StrategyMode.Instance;
+        if (sm != null && BoostHeld()) sm.CameraSpeed = BoostFactor;
     }
 
     // = StrategyMode.SnapYaw (106:2066-2069)

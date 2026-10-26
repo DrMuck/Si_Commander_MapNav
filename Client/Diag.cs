@@ -53,14 +53,15 @@ public sealed partial class ClientMod
         var kb = Keyboard.current;
         sb.Append(" | keys ").Append(kb == null ? "no keyboard" : Try(() =>
             "W" + B(kb.wKey.isPressed) + " A" + B(kb.aKey.isPressed) + " S" + B(kb.sKey.isPressed) + " D" + B(kb.dKey.isPressed)
-            + " Up" + B(kb.upArrowKey.isPressed) + " Q" + B(kb.qKey.isPressed) + " E" + B(kb.eKey.isPressed)));
+            + " Up" + B(kb.upArrowKey.isPressed) + " Q" + B(kb.qKey.isPressed) + " E" + B(kb.eKey.isPressed)
+            + " Shift" + B(kb.shiftKey.isPressed) + (kb.shiftKey.isPressed ? " boost x" + BoostFactor.ToString("0.#") : "")));
         Vector3 rig = default, cam = default; bool haveRig = false, haveCam = false;
         var sm = StrategyMode.Instance;
         sb.Append(" | rig ").Append(sm == null ? "NO StrategyMode.Instance" : Try(() =>
         {
             rig = sm.transform.position; haveRig = true;
             return V(rig) + " yaw " + sm.transform.rotation.eulerAngles.y.ToString("0") + " enabled " + B(sm.enabled) + " activeInHierarchy " + B(sm.gameObject.activeInHierarchy)
-                + " heightPct " + sm.CameraHeightPct.ToString("0.00") + " smooth " + B(sm.m_SmoothMovement) + " InStrategyMode " + B(StrategyMode.InStrategyMode);
+                + " heightPct " + sm.CameraHeightPct.ToString("0.00") + " CameraSpeed " + sm.CameraSpeed.ToString("0.##") + " smooth " + B(sm.m_SmoothMovement) + " InStrategyMode " + B(StrategyMode.InStrategyMode);
         }));
         var camera = Game.CurrentCamera;
         sb.Append(" | camera ").Append(camera == null ? "NULL" : Try(() =>

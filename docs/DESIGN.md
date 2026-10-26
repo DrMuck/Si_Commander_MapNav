@@ -285,3 +285,16 @@ The MapLayer object "Map" itself carries a Unity `Button`.
    4. Otherwise go on to the parent. Reaching the Map root means ALLOW.
 
 The two logged cases now give ALLOW at `Map` and at `LargeMapIcon(Clone)` respectively.
+
+**Shift speed boost (also in 0.1.3).**
+- Binding in `SilicaInput.asset`: Commander / **Camera Speed Boost** = `<Keyboard>/shift` (the either-shift control, so left or right) plus `<Gamepad>/leftStickPress`. Commander / Fast Modifier = `<Keyboard>/leftShift`, but `MoveFastModifierHeld` is hard-coded `false` and it is unused for the camera.
+- Vanilla `UpdateSpeedBoostHotkey` (106:3442-3446, 109:3545-3549) sets `CameraSpeed = 5` while the button is held, else 1.
+  - It runs from `UpdateHotkeys` at the end of `Update` (109:2507), after the `ClampPositionToCameraBounds` turbo multiply (109:2060-2062).
+  - `GetButton` ignores EnableOverride, so behind the map it resets `CameraSpeed` to 1 every frame.
+
+| Mode | Boost (pref `SpeedBoostFactor`, default 5; Shift read as `Keyboard.shiftKey`) |
+|---|---|
+| direct | Our translation is multiplied by the factor while Shift is held. If `StrategyMode.CameraSpeed` is ever != 1, that value is used **instead** (never both). |
+| override | We write `StrategyMode.CameraSpeed = factor` while Shift is held. In either script order, the next clamp uses it before `UpdateHotkeys` resets it. |
+
+The DIAG held line shows a `Shift` column, `boost xN` and `CameraSpeed`.

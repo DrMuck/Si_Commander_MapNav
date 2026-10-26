@@ -98,6 +98,7 @@ public sealed partial class ClientMod
         fallbackWanted = keyboard && prefFallback.Value;
         if (keyboard) HealOverrides();
         if (keyboard && direct) DirectDrive();
+        if (keyboard && !direct) OverrideBoost();
 
         if (active && prefClickToJump.Value) ClickUpdate(lm);
         else ResetClick();

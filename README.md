@@ -3,6 +3,7 @@
 A client-only MelonLoader mod for Silica (Il2Cpp game client). While you are commander and the large map (**M**) is open, the RTS camera still moves:
 
 - **WASD / arrow keys** move the camera, and **Q / E** (or `,` / `.`) rotate it. You see the camera arrow move on the map.
+- **Shift** speeds the camera up (x5, like vanilla).
 - **Left click** on the map moves the camera to look at that spot. Dragging still pans the map.
 - **Optional:**
   - the mouse wheel can zoom the camera as well (off by default, because the wheel already zooms the map);
@@ -32,6 +33,7 @@ Packaged copies are in `Projects\_dist\Si_Commander_MapNav_<version>_<date>\`. C
 | Enabled | true | Master switch |
 | KeyboardNav | true | WASD/arrows/QE move and rotate the camera while the map is open (keyboard and mouse only) |
 | DriveMode | direct | `direct`: the mod moves the camera rig itself from the default keys (rebinding is not honoured). `override`: the 0.1.0 route, which re-enables the vanilla Commander camera actions. |
+| SpeedBoostFactor | 5 | Camera speed factor while Shift is held with the map open (vanilla Camera Speed Boost = 5). 1 = off. |
 | CameraZoomWhileMapOpen | false | The mouse wheel zooms the camera too (it zooms the map at the same time) |
 | ClickToJump | true | A left click on the map jumps the camera there |
 | CloseMapOnClick | false | Close the map after a jump |
