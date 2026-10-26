@@ -80,24 +80,34 @@ public sealed partial class ClientMod
         if (active != navActive)
         {
             navActive = active;
-            if (active) Write("NAV ON: large map open as commander (" + GameInput.CurrentControlScheme + "). " + PrefSummary());
+            if (active) { Write("NAV ON: large map open as commander (" + GameInput.CurrentControlScheme + "). " + PrefSummary()); DiagOnNavOn(); }
             else Write("NAV OFF: " + block + ".");
-            if (!active) { ResetClick(); followUntil = 0; }
+            if (!active) { ResetClick(); ResetDrive(); followUntil = 0; }
         }
         else if (!active && block != lastBlock) Dbg("blocked: " + block);
         lastBlock = block ?? "";
 
         bool keyboard = active && prefKeyboardNav.Value && GameInput.CurrentControlScheme != EControlScheme.Gamepad;
-        SetOverride(MoveAction, keyboard);
-        SetOverride(RotateAction, keyboard);
+        bool direct = IsDirectMode;
+        // DriveMode=override (0.1.0): EnableOverride on the Commander actions, vanilla StrategyMode.Update reads them.
+        // DriveMode=direct (0.1.1 default): Move/Rotate are NOT overridden; Drive.cs moves the rig itself (DirectDrive).
+        // Zoom stays on the override route in both modes (opt-in, default off).
+        SetOverride(MoveAction, keyboard && !direct);
+        SetOverride(RotateAction, keyboard && !direct);
         SetOverride(ZoomAction, keyboard && prefZoom.Value);
         fallbackWanted = keyboard && prefFallback.Value;
         if (keyboard) HealOverrides();
+        if (keyboard && direct) DirectDrive();
 
         if (active && prefClickToJump.Value) ClickUpdate(lm);
         else ResetClick();
 
-        if (keyboard && prefFollow.Value && (Pressed(MoveAction) || Pressed(RotateAction))) followUntil = Now + 0.75;   // camera smoothing keeps moving a bit
+        if (keyboard)
+        {
+            bool held = NavKeysHeld();
+            if (prefFollow.Value && held) followUntil = Now + 0.75;   // camera smoothing keeps moving a bit
+            DiagUpdate(held);
+        }
     }
 
     // Sets / clears our override on one Commander action. Only touches actions we set ourselves.
@@ -130,12 +140,6 @@ public sealed partial class ClientMod
             a.Enable();
             if (!healLogged) { healLogged = true; Write("Overridden action '" + name + "' was disabled by something else; re-enabled (logged once)."); }
         }
-    }
-
-    private static bool Pressed(string action)
-    {
-        var a = GameInput.GetAction(InputMap.Commander, action);
-        return a != null && a.enabled && a.IsPressed();   // non-generic read, no ReadValue<T> through Il2Cpp generics
     }
 
     // Restore vanilla input: clear every override we set. Safe to call any time (scene load, unload, fault, quit).

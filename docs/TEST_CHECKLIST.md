@@ -1,11 +1,19 @@
-# Si_Commander_MapNav 0.1.0: in-game test checklist
+# Si_Commander_MapNav 0.1.1: in-game test checklist
 
 **Setup:** the client is on the Steam test branch. `Mods\Si_Commander_MapNav.dll` is the test build. Any server works.
 
 **Logs:** MelonLoader console / `MelonLoader\Latest.log`, and `UserData\Si_Commander_MapNav\session-*.log`. Set `Debug = true` in `UserData\MelonPreferences.cfg` `[Si_Commander_MapNav]` for override, click and push detail.
 
+## 0. 0.1.1 first: the diagnostic run (do this before anything else)
+- Install: with the game **closed**, copy `Mods\~pending\Si_Commander_MapNav.dll` over `Mods\Si_Commander_MapNav.dll`, then delete the `~pending` folder. The log must say `READY 0.1.1 ... DriveMode=direct`.
+1. Join as commander and open the map (M). The log shows `NAV ON` and two `DIAG nav-on` lines.
+2. **Hold W for 2 s with the map open**, then release.
+3. Left-click once on an empty map spot (do not drag). The log shows `Click press at ...` and either `Jump: ...` or the reason.
+4. Close the map, quit the game, and **send the session log** (`UserData\Si_Commander_MapNav\session-*.log`, the newest one).
+5. Optional second run: set `DriveMode = override` and repeat steps 1-4. Same log request; it shows why the 0.1.0 route fails.
+
 ## A. Load
-1. Start the game. The log shows `READY 0.1.0 - Commander MapNav. Enabled=True KeyboardNav=True CameraZoomWhileMapOpen=False ClickToJump=True CloseMapOnClick=False MapFollowsCamera=True ...`.
+1. Start the game. The log shows `READY 0.1.1 - Commander MapNav. Enabled=True KeyboardNav=True DriveMode=direct CameraZoomWhileMapOpen=False ClickToJump=True CloseMapOnClick=False MapFollowsCamera=True ...`.
    - The prefs category `[Si_Commander_MapNav]` appears in MelonPreferences.cfg after the first quit.
 2. There are no `ERROR` lines in the session log during load and while joining a server.
 

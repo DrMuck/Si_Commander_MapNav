@@ -21,7 +21,7 @@ namespace SiCommanderMapNav;
 // session and restores vanilla input (ClearOverrides).
 public sealed partial class ClientMod : MelonMod
 {
-    public const string Version = "0.1.0";
+    public const string Version = "0.1.1";
 
     private static ClientMod instance;
     private readonly Stopwatch clock = Stopwatch.StartNew();
@@ -30,6 +30,7 @@ public sealed partial class ClientMod : MelonMod
     private int errors;
     private bool faulted;
 
+    private MelonPreferences_Entry<string> prefDriveMode;
     private MelonPreferences_Entry<bool> prefEnabled, prefKeyboardNav, prefZoom, prefClickToJump, prefCloseOnClick, prefFollow, prefFallback, prefDebug;
 
     internal double Now => clock.Elapsed.TotalSeconds;
@@ -41,6 +42,7 @@ public sealed partial class ClientMod : MelonMod
         var c = MelonPreferences.CreateCategory("Si_Commander_MapNav");
         prefEnabled = c.CreateEntry("Enabled", true, description: "Master switch. Off = the mod does nothing (vanilla input).");
         prefKeyboardNav = c.CreateEntry("KeyboardNav", true, description: "While the large map (M) is open as commander: WASD / arrows move and Q / E (, / .) rotate the RTS camera (keyboard + mouse only).");
+        prefDriveMode = c.CreateEntry("DriveMode", "direct", description: "How keyboard nav moves the camera: \"direct\" = the mod moves the RTS camera rig itself from raw W/A/S/D, arrows, Q/E, comma/period (default keys only, rebinding not honoured); \"override\" = 0.1.0 behaviour, re-enables the vanilla Commander camera actions (honours rebinding; did not move the camera in the first in-game test).");
         prefZoom = c.CreateEntry("CameraZoomWhileMapOpen", false, description: "Also let the mouse wheel zoom the RTS camera while the map is open. Off by default: the same wheel already zooms the map itself, so both would zoom at once.");
         prefClickToJump = c.CreateEntry("ClickToJump", true, description: "Left click (press + release without dragging) on the large map moves the RTS camera to look at that spot. Dragging still pans the map.");
         prefCloseOnClick = c.CreateEntry("CloseMapOnClick", false, description: "Close the large map after a click-to-jump.");
@@ -81,7 +83,7 @@ public sealed partial class ClientMod : MelonMod
     }
 
     private string PrefSummary() =>
-        "Enabled=" + prefEnabled.Value + " KeyboardNav=" + prefKeyboardNav.Value + " CameraZoomWhileMapOpen=" + prefZoom.Value
+        "Enabled=" + prefEnabled.Value + " KeyboardNav=" + prefKeyboardNav.Value + " DriveMode=" + prefDriveMode.Value + " CameraZoomWhileMapOpen=" + prefZoom.Value
         + " ClickToJump=" + prefClickToJump.Value + " CloseMapOnClick=" + prefCloseOnClick.Value + " MapFollowsCamera=" + prefFollow.Value
         + " PreferredInputFallback=" + prefFallback.Value + " Debug=" + prefDebug.Value;
 

@@ -183,3 +183,51 @@ Interop public surface, 1.0.7 (`_silica_refs\client_test`) vs the installed 1.0.
 4. **IMGUI text fields of other mods** (Si_ModUI panel) are not covered by `UIManager.TextInputActive`. Typing in such a field while the M map is open as commander moves the camera.
 5. **`IsPressed()` on the 2D composite** is used only to start the follow window. If it never fires, the map simply does not follow.
 6. **Commander role change while the map is open.** `LargeMap.OnCommanderChanged` closes the map (LargeMap.cs:155-161) and the gate closes the same frame. This should be fine.
+
+## 10. 0.1.1: in-game result of 0.1.0, direct drive mode, diagnostics
+
+**In-game result of 0.1.0.** Release 1.0.10 client, Centauri commander vs AI, session log `session-20261026T155950658Z.log`:
+- The registered LargeMap is on `Centauri_ScoreBoard`; its Map is `Map Window`.
+- The gate worked: one NAV ON / NAV OFF pair per M press.
+- The map viewport is screen-space overlay and fills the screen (2560x1369).
+- There were no errors and no heal line.
+- **The camera did not move.** No `Jump:` line was logged, so no click-to-jump happened. With Debug off, the one `Map UI space` line cannot tell whether it came from a click or from a map-follow push.
+
+**Logs checked for vanilla warnings:**
+- There is no Unity `Player.log`; Silica writes its DebugConsole log to `Documents\Silica\Game.log`. Its 16:59-17:11 session has no `GameInput.SetActionEnableOverride` warning (neither "not registered" nor "not present") and no warning, error or exception at all.
+- `MelonLoader\Latest.log` has no forwarded Unity warnings.
+- So the action names and the Commander map were valid.
+
+**Current code (1.0.9 managed decompile of today's dedicated-server SilicaCore.dll, 16:30, scratch `C:	mp\silica_decompile_109`):**
+- `ActionMapContainer`, `GameInput.GetPreferredInput`, `ReadValue` and `SetActionEnableOverride` are unchanged.
+- In `StrategyMode`, the camera path is unchanged: `Update` 2375, `UpdateCameraPosition` 2176-2186, `ClampPositionToCameraBounds` 2060-2079, and `ClampCameraHeight` 2244-2263, which writes `base.transform.position` back.
+- So the failure is not visible in the managed code. It has to be one of:
+  - (a) the overridden InputAction does not read the keys;
+  - (b) StrategyMode.Update does not run or write the rig while the menu is open;
+  - (c) `Game.CurrentCamera` does not follow.
+
+**Diagnostics (`Diag.cs`, always on while NAV is on):**
+- On NAV ON: whether each nav action exists (`GetAction`, plus `_actionMaps[Commander].actionContainers[name].EnableOverride`), followed by one state line.
+- While a camera key is physically held: one line per 0.5 s with:
+  - `CurrentInput` and the control scheme;
+  - per action: enabled, `actionMap.enabled`, `ReadValueAsObject()` (non-generic), `controls.Count` and the override flag;
+  - raw key states;
+  - rig position, yaw, enabled / activeInHierarchy, heightPct and smooth;
+  - camera name, position, enabled and active;
+  - `TextInputActive`, `IsPaused`, `timeScale` and `GetCameraEnabled`;
+  - the rig and camera deltas since the previous line, with explicit verdicts "RIG MOVED, CAMERA DID NOT" and "RIG DID NOT MOVE".
+- On every left press while NAV is on: pointer, viewport rect (inside or outside), verdict and block reason, the world point, the top UI raycast hit, and sceneBounds / sceneOffset. Release outcomes (drag, held too long, outside terrain) are logged without Debug.
+
+**DriveMode (pref, default `direct`).**
+- `override` is the 0.1.0 route, unchanged.
+- `direct` never touches EnableOverride for Move or Rotate (Zoom stays on the override route, opt-in). Each frame it reads `Keyboard.current` and writes `StrategyMode.Instance.transform` (`Drive.cs`).
+- Vanilla `Update` starts from `transform.position`, clamps to `CameraBounds`, recomputes the terrain-follow height, writes the position back and smooth-damps the camera. Our movement is therefore processed exactly like vanilla keyboard input, whatever the script order (at most one frame late).
+- We clamp x/z to `CameraBounds` ourselves as well.
+
+| | Formula (copied from vanilla) |
+|---|---|
+| Move | `speed = (CameraHeightPct*0.9+0.1)*600*dt*(m_SmoothMovement?0.5:1)`, `dt = clamp(unscaledDeltaTime,0,0.033)`; `right = transform.right`, `forward = Cross(right, up).normalized`; diagonals normalized (2DVector composite); times `CameraSpeed`. |
+| Rotate | smooth: `yaw += 120*dir*dt`; stepped: `SnapYaw` once per press. Uses a copy of `SetYawAroundPivot`'s math, because the 0.9.47 interop has neither `SetYawAroundPivot` nor `SnapYaw` (0.9.47 inlines them). |
+| Keys | Hardcoded vanilla defaults: W/A/S/D + arrows, Q/E + comma/period. **Rebinding is not honoured.** |
+
+If direct mode also shows no movement, the diagnostics show whether the rig moved and the camera did not (b/c), or whether the rig never moved.

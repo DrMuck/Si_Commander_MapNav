@@ -42,6 +42,7 @@ public sealed partial class ClientMod
     private Vector2 pressPos;
     private double pressAt;
     private bool spaceLogged, spaceFlat = true;
+    private string lastTopHit = "";
 
     private void ResetClick() { pressValid = false; }
 
@@ -54,15 +55,30 @@ public sealed partial class ClientMod
             pressPos = mouse.position.ReadValue();
             pressAt = Now;
             pressValid = IsMapPoint(lm, pressPos, out string why);
-            if (!pressValid) Dbg("press ignored: " + why);
+            DiagPress(lm, pressPos, pressValid, why);
         }
         if (!mouse.leftButton.wasReleasedThisFrame || !pressValid) return;
         pressValid = false;
         Vector2 release = mouse.position.ReadValue();
         float moved = Vector2.Distance(release, pressPos);
-        if (moved > DragThreshold) { Dbg("drag (" + moved.ToString("0") + " px), not a click"); return; }
-        if (Now - pressAt > MaxClickSeconds) { Dbg("press held too long, not a click"); return; }
+        if (moved > DragThreshold) { Write("Click release: drag (" + moved.ToString("0") + " px), not a click."); return; }
+        if (Now - pressAt > MaxClickSeconds) { Write("Click release: held " + (Now - pressAt).ToString("0.0") + " s, not a click."); return; }
         Jump(lm, pressPos);
+    }
+
+    // 0.1.1 diagnostics: one line per left press while NAV is on (pointer, viewport, verdict, world point).
+    private void DiagPress(LargeMap lm, Vector2 p, bool valid, string why)
+    {
+        var map = MapOf(lm);
+        string inside = "?", world = "?";
+        try { inside = map != null && map.Viewport != null && ScreenRect(map.Viewport, out var vp) ? (vp.Contains(p) ? "inside" : "OUTSIDE") + " viewport " + vp : "no viewport"; } catch (Exception e) { inside = "ERR " + e.GetType().Name; }
+        try
+        {
+            world = map == null ? "no map" : ScreenToWorld(map, p, out var w) ? "(" + w.x.ToString("0") + ", " + w.z.ToString("0") + ")" : "outside terrain";
+            if (map != null) world += " [sceneBounds " + map.sceneBounds + ", sceneOffset " + map.sceneOffset + "]";
+        }
+        catch (Exception e) { world = "ERR " + e.GetType().Name; }
+        Write("Click press at (" + p.x.ToString("0") + "," + p.y.ToString("0") + "), " + inside + ": " + (valid ? "map point" : "BLOCKED - " + why) + ", world " + world + ", top UI hit '" + lastTopHit + "'.");
     }
 
     private void Jump(LargeMap lm, Vector2 screen)
@@ -70,7 +86,7 @@ public sealed partial class ClientMod
         var map = MapOf(lm);
         var strategy = StrategyMode.Instance;
         if (map == null || strategy == null) return;
-        if (!ScreenToWorld(map, screen, out var world)) { Dbg("click outside the terrain area"); return; }
+        if (!ScreenToWorld(map, screen, out var world)) { Write("Click: outside the terrain area, no jump."); return; }
         var cam = Game.CurrentCamera;
         world.y = cam != null ? cam.transform.position.y : 0f;   // MoveCameraToPosition keeps the pivot height itself (StrategyMode.cs:784)
         strategy.MoveCameraToPosition(world);
@@ -82,6 +98,7 @@ public sealed partial class ClientMod
     private bool IsMapPoint(LargeMap lm, Vector2 p, out string why)
     {
         why = null;
+        lastTopHit = "not checked";
         var map = MapOf(lm);
         if (map == null || map.MapLayer == null) { why = "no map"; return false; }
         var viewport = map.Viewport;
@@ -97,14 +114,16 @@ public sealed partial class ClientMod
     // or returns nothing (no raycast target under the pointer), the geometry checks above decide.
     private bool TopHitIsMap(RectTransform viewport, Vector2 p, ref string why)
     {
+        lastTopHit = "-";
         var es = EventSystem.current;
-        if (es == null) return true;
+        if (es == null) { lastTopHit = "no EventSystem"; return true; }
         var data = new PointerEventData(es) { position = p };
         var hits = new Il2CppSystem.Collections.Generic.List<RaycastResult>();
         es.RaycastAll(data, hits);
-        if (hits.Count == 0) return true;
+        if (hits.Count == 0) { lastTopHit = "no hit"; return true; }
         var top = hits[0].gameObject;
-        if (top == null) return true;
+        if (top == null) { lastTopHit = "null"; return true; }
+        lastTopHit = top.name + " (" + hits.Count + " hits)";
         var vt = viewport.transform;
         if (!top.transform.IsChildOf(vt)) { why = "UI above the map ('" + top.name + "')"; return false; }
         for (var t = top.transform; t != null && t.Pointer != vt.Pointer; t = t.parent)

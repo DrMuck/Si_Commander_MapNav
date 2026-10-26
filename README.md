@@ -9,14 +9,16 @@ A client-only MelonLoader mod for Silica (Il2Cpp game client). While you are com
   - the map can close after a click (off by default).
 - When the map is zoomed in, it scrolls along while the camera moves with the keyboard.
 
-Nothing is sent to the server, so the mod works on vanilla and modded servers alike. Version 0.1.0, author DrMuck.
+Nothing is sent to the server, so the mod works on vanilla and modded servers alike. Version 0.1.1, author DrMuck.
+
+**Status:** in the first in-game test, 0.1.0 opened the gate but the camera did not move. 0.1.1 adds the `direct` drive mode (now the default) and always-on diagnostics; see `docs/DESIGN.md` §10.
 
 ## Install
 Copy the DLL that matches the client's Steam branch into `<Silica>\Mods\`:
 - `Client\bin\Release\default\Si_Commander_MapNav.dll` for the **default** branch (Beta 0.9.47);
 - `Client\bin\Release\net6.0\Si_Commander_MapNav.dll` for the **test** branch (Release 1.0.x).
 
-Packaged copies are in `Projects\_dist\Si_Commander_MapNav_0.1.0_2026-10-26\`.
+Packaged copies are in `Projects\_dist\Si_Commander_MapNav_<version>_<date>\`. Copy with the game closed, because the running game locks the DLL.
 
 ## Settings
 `UserData\MelonPreferences.cfg`, category `[Si_Commander_MapNav]`:
@@ -25,6 +27,7 @@ Packaged copies are in `Projects\_dist\Si_Commander_MapNav_0.1.0_2026-10-26\`.
 |---|---|---|
 | Enabled | true | Master switch |
 | KeyboardNav | true | WASD/arrows/QE move and rotate the camera while the map is open (keyboard and mouse only) |
+| DriveMode | direct | `direct`: the mod moves the camera rig itself from the default keys (rebinding is not honoured). `override`: the 0.1.0 route, which re-enables the vanilla Commander camera actions. |
 | CameraZoomWhileMapOpen | false | The mouse wheel zooms the camera too (it zooms the map at the same time) |
 | ClickToJump | true | A left click on the map jumps the camera there |
 | CloseMapOnClick | false | Close the map after a jump |
