@@ -7,6 +7,7 @@ Client-only MelonLoader mod (Il2Cpp game client) for DrMuck.
 **Line references**
 - `106:File.cs:N` means `C:\tmp\silica_decompile_106\File.cs` (Release 1.0.6, test branch).
 - `0947:File.cs:N` means `C:\tmp\silica_decompile_0947\File.cs` (Beta 0.9.47, default branch).
+- `1015:File.cs:N` means `C:\tmp\silica_decompile_1015\File.cs` (Release 1.0.15, the installed client since 2026-11-01; used for §13).
 - The local client runs Release **1.0.10** since 2026-10-26 16:31. Its interop was checked against 1.0.7 for every class used here; see "Branch differences".
 
 ## 1. Why the camera freezes (vanilla)
@@ -298,3 +299,74 @@ The two logged cases now give ALLOW at `Map` and at `LargeMapIcon(Clone)` respec
 | override | We write `StrategyMode.CameraSpeed = factor` while Shift is held. In either script order, the next clamp uses it before `UpdateHotkeys` resets it. |
 
 The DIAG held line shows a `Shift` column, `boost xN` and `CameraSpeed`.
+
+## 13. 0.2.0: take control of a unit from the map (`MapControl.cs`)
+
+**Goal:** the commander clicks an own unit on the large map and gets direct control of it. **F** returns to commander view as usual. Everything after the click is vanilla.
+
+### Vanilla path (1015, unchanged in 0947)
+
+| Step | Code |
+|---|---|
+| F key | `StrategyMode.UpdateHotkeys` → `UpdateDirectControlHotkey` (1015:StrategyMode.cs:3627-3651). On `GetButtonDown("Direct Control Unit", Commander)`: if `DirectControlUnit` is set → `RequestDirectControl(null)`; else if `InStrategyMode`, exactly one selected object, not destroyed, a `Unit`, and `unit.GetAllowDirectControl()` → `RequestDirectControl(unit)`. |
+| Entry point | `public bool RequestDirectControl(Unit)` just calls the private `DirectControl(Unit)` (828-900; 0947:618-690). |
+| DirectControl(unit) | Returns false if `unit` is already the controlled unit, or if `!unit.GetAllowDirectControl()` (835-842). Sets `DirectControlUnit`, `Game.QueueCameraLerp()`, `ToggleStrategyMode(false, calledFromDirectControl: true)` (849), sends `NetworkLayer.SendPlayerSelectUnit(CurrentPlayer, unit)` (865), sets `Net_ClientCancellingDirectControl` on a client (874), and sets the Commander "Direct Control Unit" **EnableOverride** (891), so F stays live from the unit's input map. |
+| Network | One vanilla packet, `ENetworkPacketType.PlayerSelectUnit` (NetworkLayer.cs:1609-1640: player id, channel, unit NetID). The client first checks `Player.GetCanSwitchToUnit` (Player.cs:655-666). The server checks only `GetCanSwitchToUnit` (not already its unit, `ControlledBy == null`), relays and sets `ControlledUnit` (NetworkLayer.cs:528-566). **There is no team check on the server**, so the client-side `GetAllowDirectControl` is the real gate, and the mod never goes around it. |
+| Return | F → `DirectControl(null)` (also on unit destroyed / unselected / deleted, 949-975, 2466-2469): clears the override, `ToggleStrategyMode(true)` (camera re-centred on the current camera position, 773), and re-selects the unit it left (880-887). |
+
+**Eligibility = vanilla's own test.** `Unit.GetAllowDirectControl` (Unit.cs:1557-1568):
+- the unit is not destroyed and `ControlledBy == null` (no human, the commander included, drives it);
+- it does not sit in a driver compartment (`InCompartment.IsDriver`; you control the vehicle instead);
+- `Team == Team.CurrentTeam` (or Game Master in Sandbox);
+- `!ObjectInfo.DisableDirectControl`;
+- `GameMode.GetAllowDirectControl` (GameMode.cs:238-253): the round has begun and is not over, and the local player is commander.
+
+Structures are not `Unit`s, so they are never candidates. 0947's `GetAllowDirectControl` lacks the `IsDestroyed` term (0947:Unit.cs:1418-1429); the hotkey checks it separately, and so does the mod.
+
+**Nothing depends on how control was entered.**
+- The selection is only the hotkey's way of naming the unit. `DirectControl` does not read it, and `ToggleStrategyMode` → `ClearInputActions` clears it anyway (781, 1005-1027).
+- The return path uses `DirectControlUnit`.
+- So the mod does not touch the selection. It calls `RequestDirectControl(unit)` with the unit the click names.
+
+### Calling it with the map open
+
+- `GetPreferredInput` returns UI only while a menu is open (GameInput.cs:303-306), so the F key is dead. The mod calls the method directly instead.
+- `RequestDirectControl` itself has no input or menu condition. The "Direct Control Unit" override setter enables the action regardless of the current input map (§2).
+- **Order: `RequestDirectControl` first, then `MenuManager.CloseMenu(LargeMap)`, both in the same `OnUpdate`.**
+  - `GameInput.UpdateInput` is polled from `GameManager.Update` (GameManager.cs:359), so no input-map switch can happen between the two calls. Input-wise the order is irrelevant.
+  - The order only matters for failure: if vanilla refuses (returns false), the map stays open and nothing has changed.
+  - `DirectControl` touches no menu synchronously. Its UI-mode change is a request (`UIManager.RequestSwitchMode`, UIManager.cs:312-354), applied later.
+- Closing through `CloseMenu` runs `LargeMap.Close` (respawn panel, blur reset, LargeMap.cs:92-101) and fires `OnMenuClosed`.
+  - During the 0.15 s close delay (UIOpenCloseHandler.cs:23, 45-53) input stays UI-only, so the click's release cannot reach the unit's fire input.
+  - If the canvas were deactivated mid-close, `UIOpenCloseHandler.OnDisable` forces `Closed` (40-43), so the menu cannot get stuck.
+- Next frame the gate sees "large map closed": NAV OFF, overrides cleared, click state reset, exactly as on a normal close. Our nav overrides concern Camera Movement / Rotate / Zoom only, never "Direct Control Unit".
+
+### Pick
+
+1. **Icon under the cursor.** `EventSystem.RaycastAll` at the click. For each hit inside the Map subtree, walk up to a `MapIcon`. `MapIcon.RelatedObject` is the Target's Owner (TargetMapIconDisplay.cs:53), a `Unit` or a `Structure`. The first hit whose object is an eligible `Unit` wins. This is what the player sees under the cursor and settles overlapping icons the way they are drawn (units draw above structures: Order 2 vs 1, TargetMapIconDisplay.cs:56-63).
+2. **Otherwise the nearest eligible unit of `Team.CurrentTeam`**, projected with `WorldToMapScreen` (the same formula as the icon placement, MapIconDisplay.cs:104-112), within `ControlPickRadiusPx`.
+   - The default of 14 px is based on the large-map `MinIconSize` of 20-25 canvas units (UIManager{Sol,Centauri,Alien}.prefab in the old export), so a little over half an icon.
+   - This route needs no generic Il2Cpp field access (`ContextIcon<BaseGameObject>.RelatedObject`). It also catches clicks a few px beside a small, moving icon.
+   - Route 1 is wrapped: if the icon lookup throws, it is logged once and route 2 alone decides.
+
+**Why not the icon alone?** The raycast gives only what has a raycast-target Graphic (it does: the 0.1.2 log shows `Graphic < LargeMapIcon(Clone)` hits). A click 2 px beside a 20 px icon misses it, and `RelatedObject` is the one generic-class field read in the mod. **Why not the projection alone?** With overlapping icons, the nearest centre is not always the icon drawn on top.
+
+### Interaction
+
+| `ControlUnitClick` | Behaviour |
+|---|---|
+| `double` (default) | Two valid short clicks (each passes `IsMapPoint` and the 6 px / 1 s click test). The second press must come within 0.35 s of the first release and within 8 px of it. The first click jumps as usual. The second takes control if a unit is in reach; otherwise it is a normal click (jumps). A third click starts a new pair. |
+| `single` | A click with an eligible unit in reach takes control instead of jumping. Other clicks jump. |
+| `off` | 0.1.4 behaviour. |
+
+- The click watcher runs when `ClickToJump` **or** `ControlUnitClick` is on. With `ClickToJump = false`, clicks only take control.
+- `CloseMapOnClick` with `double`: the close after a jump waits 0.35 s (and never closes while a press is in progress), so the second click still lands on the open map.
+- Gate: the nav gate of §3 (commander, strategy mode, map open, no text input, not picking a spawn).
+
+**Logging.** Every attempt in `double` mode, and every `single` click with a unit in reach or on an icon, writes one line:
+- `Control: <how> at x,y -> '<name>' (<UnitType>) at world (x, z), N px, <icon under the cursor | nearest of K in reach>: taken / REFUSED by vanilla RequestDirectControl (<reason>)`;
+- or `... no controllable own unit within R px; nearest own unit '<name>' ... is not controllable (<reason>); icon under the cursor: ...`.
+
+The reason mirrors the vanilla checks (destroyed, controlled by player 'X', sits in a driver seat, other team, DisableDirectControl, round not running), for the log only. With Debug, the line also carries the icon size in px and the state after the call (`InStrategyMode`, `DirectControlUnit`, `CurrentInput`).
+
+**Branches.** `RequestDirectControl`, `DirectControlUnit`, `GetAllowDirectControl`, `MapIcon : ContextIcon<BaseGameObject>`, `Team.Units` exist in both the 0.9.47 and the 1.0.15 interop (ilspycmd). The test build passes refcheck against the installed 1.0.15 interop.

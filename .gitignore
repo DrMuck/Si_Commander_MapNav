@@ -3,3 +3,9 @@ obj/
 include/
 *.pdb
 *.cache
+
+# Local tooling / release archives
+.codebase-memory/
+.vs/
+*.zip
+*.7z

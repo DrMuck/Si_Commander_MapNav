@@ -24,7 +24,8 @@ namespace SiCommanderMapNav;
 //   - NO vanilla click handler on the map or its MapIcons (MapIcon/ContextIcon implement no pointer interface; the
 //     IPointerClickHandler implementers are ClickHandler and RTS panels). Middle mouse = Global/Ping (untouched),
 //     right click untouched. UIMovePanel is the GAMEPAD left-stick pan (UI/Move), not a mouse drag.
-// So a short left click on the map has no vanilla meaning; we give it one. Clicks on anything selectable (buttons,
+// So a short left click on the map has no vanilla meaning; we give it one (and since 0.2.0 a click / double click on an own
+// unit takes direct control of it, MapControl.cs OnMapClick). Clicks on anything selectable (buttons,
 // toggles, the scoreboard, the respawn menu, legend) or on any UI drawn above the map are left alone: the top-most UI
 // raycast hit must lie inside the Map subtree and carry no interactive control up to the Map root (IsMapPoint, 0.1.2).
 //
@@ -44,10 +45,11 @@ public sealed partial class ClientMod
     private bool spaceLogged, spaceFlat = true;
     private string lastTopHit = "";
 
-    private void ResetClick() { pressValid = false; }
+    private void ResetClick() { pressValid = false; ResetControlClick(); }
 
     private void ClickUpdate(LargeMap lm)
     {
+        PendingCloseUpdate(lm);   // MapControl.cs: deferred CloseMapOnClick in double-click mode
         var mouse = Mouse.current;
         if (mouse == null || !Application.isFocused) { pressValid = false; return; }
         if (mouse.leftButton.wasPressedThisFrame)
@@ -63,7 +65,7 @@ public sealed partial class ClientMod
         float moved = Vector2.Distance(release, pressPos);
         if (moved > DragThreshold) { Dbg("Click release: drag (" + moved.ToString("0") + " px), not a click."); return; }
         if (Now - pressAt > MaxClickSeconds) { Dbg("Click release: held " + (Now - pressAt).ToString("0.0") + " s, not a click."); return; }
-        Jump(lm, pressPos);
+        OnMapClick(lm, pressPos, pressAt);   // MapControl.cs: take control of a unit (ControlUnitClick) or Jump
     }
 
     // Diagnostics (0.1.1; behind the Debug pref since 0.1.4): one line per left press while NAV is on (pointer, viewport, verdict, world point).
@@ -91,7 +93,7 @@ public sealed partial class ClientMod
         world.y = cam != null ? cam.transform.position.y : 0f;   // MoveCameraToPosition keeps the pivot height itself (StrategyMode.cs:784)
         strategy.MoveCameraToPosition(world);
         Write("Jump: camera to (" + world.x.ToString("0") + ", " + world.z.ToString("0") + ") from a map click at " + screen.x.ToString("0") + "," + screen.y.ToString("0") + ".");
-        if (prefCloseOnClick.Value) CloseLargeMap(lm);
+        if (prefCloseOnClick.Value && !DeferCloseForDoubleClick()) CloseLargeMap(lm, "click-to-jump");
     }
 
     // True when a press at `p` (pixels, origin bottom-left) is a click on the bare map.

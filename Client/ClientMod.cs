@@ -14,14 +14,17 @@ namespace SiCommanderMapNav;
 // Client-only mod: while the commander has the large map (M) open, the RTS camera stays navigable.
 //   Nav.cs            keyboard camera movement / rotation (/ zoom) through per-action EnableOverride on the Commander map
 //   MapClick.cs       left click on the map = jump the RTS camera there (StrategyMode.MoveCameraToPosition, local only)
+//   MapControl.cs     (double) click on an own unit = take direct control of it (vanilla StrategyMode.RequestDirectControl)
 //   LargeMapAccess.cs finding the registered LargeMap and its Map
-// Nothing here sends a packet or touches gameplay state: the RTS camera is local (StrategyMode.cs:781-786), and the
+// Nav and jump send nothing and touch no gameplay state: the RTS camera is local (StrategyMode.cs:781-786), and the
 // commander's map already shows the camera icon (Map.OrderedLateUpdate, Map.cs:294/358, when there is no Unit.CurrentUnit).
+// The one exception is MapControl: it calls the same vanilla method as the "Direct Control Unit" key (F), which sends the
+// vanilla PlayerSelectUnit packet itself; the mod adds no packet of its own.
 // Lifecycle: every game call is wrapped; Error() is throttled; after too many errors the mod switches itself off for the
 // session and restores vanilla input (ClearOverrides).
 public sealed partial class ClientMod : MelonMod
 {
-    public const string Version = "0.1.4";
+    public const string Version = "0.2.0";
 
     private static ClientMod instance;
     private readonly Stopwatch clock = Stopwatch.StartNew();
@@ -30,8 +33,8 @@ public sealed partial class ClientMod : MelonMod
     private int errors;
     private bool faulted;
 
-    private MelonPreferences_Entry<string> prefDriveMode;
-    private MelonPreferences_Entry<float> prefBoost;
+    private MelonPreferences_Entry<string> prefDriveMode, prefControlClick;
+    private MelonPreferences_Entry<float> prefBoost, prefPickRadius;
     private MelonPreferences_Entry<bool> prefEnabled, prefKeyboardNav, prefZoom, prefClickToJump, prefCloseOnClick, prefFollow, prefFallback, prefDebug;
 
     internal double Now => clock.Elapsed.TotalSeconds;
@@ -47,7 +50,9 @@ public sealed partial class ClientMod : MelonMod
         prefBoost = c.CreateEntry("SpeedBoostFactor", 5f, description: "Camera speed factor while Shift is held with the map open (vanilla Commander \"Camera Speed Boost\" = <Keyboard>/shift sets StrategyMode.CameraSpeed = 5). 1 = no boost.");
         prefZoom = c.CreateEntry("CameraZoomWhileMapOpen", false, description: "Also let the mouse wheel zoom the RTS camera while the map is open. Off by default: the same wheel already zooms the map itself, so both would zoom at once.");
         prefClickToJump = c.CreateEntry("ClickToJump", true, description: "Left click (press + release without dragging) on the large map moves the RTS camera to look at that spot. Dragging still pans the map.");
-        prefCloseOnClick = c.CreateEntry("CloseMapOnClick", false, description: "Close the large map after a click-to-jump.");
+        prefCloseOnClick = c.CreateEntry("CloseMapOnClick", false, description: "Close the large map after a click-to-jump. With ControlUnitClick = \"double\" the map closes 0.35 s after the click, so a double click can still take control.");
+        prefControlClick = c.CreateEntry("ControlUnitClick", "double", description: "Take direct control of an own unit from the large map, like selecting it and pressing F (Direct Control Unit); F returns to commander view as usual. \"double\" = double left click on/near the unit's icon (the first click still jumps the camera); \"single\" = a single click on/near an own unit takes control instead of jumping; \"off\" = never.");
+        prefPickRadius = c.CreateEntry("ControlPickRadiusPx", 14f, description: "How close (screen pixels from the icon centre) a click must be to an own unit for ControlUnitClick. Map icons are 20-25 px, so 14 is a little over half an icon. A click right on an icon always counts.");
         prefFollow = c.CreateEntry("MapFollowsCamera", true, description: "While you move the camera with the keyboard, the map scrolls along when the camera icon would leave the visible map area (only matters when the map is zoomed in).");
         prefFallback = c.CreateEntry("PreferredInputFallback", false, description: "Fallback only if keyboard nav does not work: keep the WHOLE Commander input map enabled while the map is open (all commander hotkeys and world clicks live behind the map). Read at game start (restart after changing). Leave off.");
         prefDebug = c.CreateEntry("Debug", false, description: "Verbose log lines: DIAG lines while the map is open (every 0.5 s while a camera key is held), one line per click on the map, overrides, map pushes.");
@@ -86,7 +91,7 @@ public sealed partial class ClientMod : MelonMod
 
     private string PrefSummary() =>
         "Enabled=" + prefEnabled.Value + " KeyboardNav=" + prefKeyboardNav.Value + " DriveMode=" + prefDriveMode.Value + " SpeedBoostFactor=" + prefBoost.Value + " CameraZoomWhileMapOpen=" + prefZoom.Value
-        + " ClickToJump=" + prefClickToJump.Value + " CloseMapOnClick=" + prefCloseOnClick.Value + " MapFollowsCamera=" + prefFollow.Value
+        + " ClickToJump=" + prefClickToJump.Value + " CloseMapOnClick=" + prefCloseOnClick.Value + " ControlUnitClick=" + prefControlClick.Value + " ControlPickRadiusPx=" + prefPickRadius.Value + " MapFollowsCamera=" + prefFollow.Value
         + " PreferredInputFallback=" + prefFallback.Value + " Debug=" + prefDebug.Value;
 
     // ---- logging: MelonLoader log + UserData\Si_Commander_MapNav\session-<utc>.log (newest 20 kept) ----

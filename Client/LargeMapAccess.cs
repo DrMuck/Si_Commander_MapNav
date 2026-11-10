@@ -49,12 +49,14 @@ public sealed partial class ClientMod
     private static Map MapOf(LargeMap lm) { try { return lm == null ? null : lm._map; } catch { return null; } }
 
     // Closing through the registered instance (MenuManager.CloseMenu(Menu), MenuManager.cs non-generic overload).
-    private void CloseLargeMap(LargeMap lm)
+    // Also used after taking control of a unit from the map (MapControl.cs), so the player lands in the unit view with the
+    // map closed the vanilla way.
+    private void CloseLargeMap(LargeMap lm, string after)
     {
         var manager = MenuManager.Instance;
         if (manager == null || lm == null) return;
         bool closed = false;
         try { closed = manager.CloseMenu(lm); } catch (Exception error) { Error(error); }
-        Write("Large map " + (closed ? "closed" : "NOT closed (CloseMenu returned false)") + " after click-to-jump.");
+        Write("Large map " + (closed ? "closed" : "NOT closed (CloseMenu returned false)") + " after " + after + ".");
     }
 }

@@ -100,7 +100,8 @@ public sealed partial class ClientMod
         if (keyboard && direct) DirectDrive();
         if (keyboard && !direct) OverrideBoost();
 
-        if (active && prefClickToJump.Value) ClickUpdate(lm);
+        // Clicks are watched for click-to-jump and/or click-to-control (MapControl.cs); either pref keeps the watcher on.
+        if (active && (prefClickToJump.Value || ControlClickMode != ControlClick.Off)) ClickUpdate(lm);
         else ResetClick();
 
         if (keyboard)

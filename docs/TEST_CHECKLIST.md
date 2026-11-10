@@ -1,6 +1,8 @@
-# Si_Commander_MapNav 0.1.4: in-game test checklist
+# Si_Commander_MapNav 0.2.0: in-game test checklist
 
 **Setup:** the client is on the Steam test branch. `Mods\Si_Commander_MapNav.dll` is the test build. Any server works.
+
+> **0.2.0 is new and not yet run in game: start with section G** (take control from the map), then re-run B9, C12 and C14 to make sure nothing regressed. The load line now reads `READY 0.2.0 ... ControlUnitClick=double ControlPickRadiusPx=14 ...`.
 
 **Logs:** MelonLoader console / `MelonLoader\Latest.log`, and `UserData\Si_Commander_MapNav\session-*.log`. Set `Debug = true` in `UserData\MelonPreferences.cfg` `[Si_Commander_MapNav]` for override, click and push detail.
 
@@ -26,7 +28,7 @@
 9. Set `DriveMode = "direct"` again afterwards.
 
 ## A. Load
-1. Start the game. The log shows `READY 0.1.4 - Commander MapNav. Enabled=True KeyboardNav=True DriveMode=direct CameraZoomWhileMapOpen=False ClickToJump=True CloseMapOnClick=False MapFollowsCamera=True ...`.
+1. Start the game. The log shows `READY 0.2.0 - Commander MapNav. Enabled=True KeyboardNav=True DriveMode=direct ... ClickToJump=True CloseMapOnClick=False ControlUnitClick=double ControlPickRadiusPx=14 MapFollowsCamera=True ...`.
    - The prefs category `[Si_Commander_MapNav]` appears in MelonPreferences.cfg after the first quit.
 2. There are no `ERROR` lines in the session log during load and while joining a server.
 
@@ -77,3 +79,48 @@
 30. If WASD does nothing with the map open (step 4) although `NAV ON` is logged:
     - set `PreferredInputFallback = true` and **restart the game** (log: `Fallback patch installed`), then retest step 4;
     - then retest step 11. With the fallback, clicks behind the map may select or order units: report what happens.
+
+## G. Take control of a unit from the map (0.2.0)
+Commander in RTS view, map open (M). Ideally a server where a second human is on your team (for step 36). Every attempt logs one `Control: ...` line in the session log.
+
+31. **Double-click an own unit icon** (an AI soldier or vehicle, not a structure).
+    - The first click jumps the camera there (`Jump: ...`).
+    - The second click takes control. The map closes and the camera lerps into the unit; you are in first/third person as after F.
+    - Log:
+      - `Control: double click at x,y -> '<name>' (<type>) at world (x, z), N px, icon under the cursor: taken (vanilla RequestDirectControl; ...)`;
+      - then `Large map closed after taking control.` and `NAV OFF: ...`.
+    - Drive, shoot and move the unit: everything behaves like vanilla direct control.
+32. **Press F.** You are back in commander view (vanilla). The unit you left is selected and the camera looks at it.
+33. **Right after that, press M again.** NAV ON is logged. WASD / Q / E move the camera, Shift boosts, a single click jumps. Close the map with M: WASD works in normal RTS play (as in B9).
+34. **Re-enter a second unit.** Open the map, double-click a different own unit: control is taken. Press F, then repeat once more with a third unit. Each time F returns you to commander view.
+35. **Double-click an enemy icon** (visible enemy unit):
+    - nothing is taken and the map stays open;
+    - the log says `no controllable own unit within 14 px` and `icon under the cursor: '<name>' (...) (not controllable: other team)`, or names your nearest own unit if one is in reach.
+36. **Double-click a unit driven by a human teammate** (the icon shows the player's name):
+    - nothing is taken;
+    - the log says `not controllable (controlled by player '<name>')`.
+37. **Double-click a structure icon** (HQ, refinery):
+    - nothing is taken (unless an own unit icon is within 14 px, then that unit is taken; the log line says which one);
+    - the log says `icon under the cursor: '<structure>' (not a unit)`.
+38. **Double-click empty terrain.** Both clicks jump the camera; nothing else happens. Log: `Control: double click at ...: no controllable own unit within 14 px.`
+39. **Dead unit:** double-click the spot where an own unit just died (icon gone). Nothing is taken. A destroyed unit's icon disappears (vanilla `IsValid`), so this mainly checks that nothing odd happens.
+40. **Slow double click** (about 0.5 s between the clicks): two jumps, no control. The window is 0.35 s from the first release to the second press.
+41. **Drag then click:** drag the map, then double-click a unit. The drag never counts as a click (Debug: `drag (N px), not a click`).
+42. **Two units on top of each other:** double-click the overlapping icons. One of them is taken. The log says `icon under the cursor` (the one drawn on top) or `nearest of K in reach`.
+43. **`ControlUnitClick = single`** (edit the cfg with the game closed):
+    - one click on an own unit takes control right away (no jump);
+    - one click on terrain, an enemy or a structure jumps as before.
+44. **`ControlUnitClick = off`:** double-clicks only jump, as in 0.1.4. No `Control:` lines are logged.
+45. **`CloseMapOnClick = true` with `double`:**
+    - a single click jumps, and the map closes about 0.35 s later;
+    - a double click on a unit takes control (the map does not close between the two clicks).
+46. **Pick radius:** if units are hard to hit, set `Debug = true`. The `Control:` line then carries `[icon WxH px]`. Set `ControlPickRadiusPx` to about half that width or a little more.
+47. **Round end while controlling** (or the unit dies): vanilla puts you back to commander view. Opening M works as before.
+
+**If it does not work, send the newest session log and look for:**
+- no `Control:` line at all after a double click: the clicks did not count as a double click. With Debug, check the two `Click press` lines (BLOCKED?) and their times.
+- `REFUSED by vanilla RequestDirectControl (<reason>)`: vanilla said no. The reason names the vanilla check.
+- `RequestDirectControl threw ...` or `ERROR`: an interop problem; send the log.
+- `Map icon lookup failed ... (logged once)`: the icon-under-cursor route is broken; the distance pick still works.
+- `taken` but you are not in the unit (stuck in a free camera): the server did not confirm the switch. Press F to return, and note the server and mods.
+- `Large map NOT closed (CloseMenu returned false) after taking control`: close the map with M or Escape; note it.
